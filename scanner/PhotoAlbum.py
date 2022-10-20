@@ -9,7 +9,6 @@ from PIL.TiffImagePlugin import IFDRational
 import gc
 import errno
 import traceback
-import subprocess
 
 class Album(object):
     def __init__(self, path):
@@ -108,7 +107,8 @@ class Album(object):
         return None
     
 class Photo(object):
-    thumb_sizes = [ (75, True), (150, True), (640, False), (800, False), (1024, False) ]
+    # Thumbnail details: (size, square?, quality)
+    thumb_sizes = [ (150, True, 88), (1024, False, 88) ]
     def __init__(self, path, thumb_path=None, attributes=None, album_base=None, compress=False):
         if album_base:
             set_cache_path_base(album_base)
@@ -247,7 +247,7 @@ class Photo(object):
             return True
         return False
         
-    def _thumbnail(self, image, thumb_path, original_path, size, square=False, suffix=None):
+    def _thumbnail(self, image, thumb_path, original_path, size, quality, square=False, suffix=None):
         thumb_path = os.path.join(thumb_path, image_cache(self._path, size, square, False, suffix))
         info_string = "%s -> %spx" % (os.path.basename(original_path), str(size))
         if square:
@@ -291,9 +291,9 @@ class Photo(object):
                 return
         try:
             if not self._rawexif:
-                image.save(thumb_path, "JPEG", quality=88)
+                image.save(thumb_path, "JPEG", quality=quality)
             else:
-                image.save(thumb_path, "JPEG", quality=88, exif=self._rawexif)
+                image.save(thumb_path, "JPEG", quality=quality, exif=self._rawexif)
         except KeyboardInterrupt:
             try:
                 os.unlink(thumb_path)
@@ -316,7 +316,6 @@ class Photo(object):
                 break
         if not create:
             return
-        self._thumbnail(image, thumb_path, original_path, 1024, False, suffix='norot')
         mirror = image
         if self._orientation == 2:
             # Vertical Mirror
@@ -340,7 +339,7 @@ class Photo(object):
             # Rotation 90
             mirror = image.transpose(Image.ROTATE_90)
         for size in Photo.thumb_sizes:
-            self._thumbnail(mirror, thumb_path, original_path, size[0], size[1], suffix=None)
+            self._thumbnail(mirror, thumb_path, original_path, size[0], size[2], square=size[1], suffix=None)
     @property
     def name(self):
         return os.path.basename(self._path)

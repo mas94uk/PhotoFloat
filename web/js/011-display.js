@@ -27,8 +27,8 @@ $(document).ready(function() {
 	var previousPhoto = null;
 	var originalTitle = document.title;
 	var photoFloat = new PhotoFloat();
-	var maxSize = 800;
-	
+	var maxSize = 1024;
+	var thumbSize = 150;
 	
 	/* Displays */
 	
@@ -97,7 +97,7 @@ $(document).ready(function() {
 			photos = [];
 			for (i = 0; i < currentAlbum.photos.length; ++i) {
 				link = $("<a href=\"#!/" + photoFloat.photoHash(currentAlbum, currentAlbum.photos[i], true) + "\"></a>");
-				image = $("<img title=\"" + photoFloat.trimExtension(currentAlbum.photos[i].name) + "\" alt=\"" + photoFloat.trimExtension(currentAlbum.photos[i].name) + "\" src=\"" + photoFloat.photoPath(currentAlbum, currentAlbum.photos[i], 150, true) + "\" height=\"150\" width=\"150\" />");
+				image = $("<img title=\"" + photoFloat.trimExtension(currentAlbum.photos[i].name) + "\" alt=\"" + photoFloat.trimExtension(currentAlbum.photos[i].name) + "\" src=\"" + photoFloat.photoPath(currentAlbum, currentAlbum.photos[i], thumbSize, true) + "\" height=\"" + thumbSize + "\" width=\"" + thumbSize + "\" />");
 				image.get(0).photo = currentAlbum.photos[i];
 				link.append(image);
 				photos.push(link);
@@ -121,7 +121,7 @@ $(document).ready(function() {
 				subalbums.push(link);
 				(function(theContainer, theAlbum, theImage, theLink) {
 					photoFloat.albumPhoto(theAlbum, function(album, photo) {
-						theImage.css("background-image", "url(" + photoFloat.photoPath(album, photo, 150, true) + ")");
+						theImage.css("background-image", "url(" + photoFloat.photoPath(album, photo, thumbSize, true) + ")");
 					}, function error() {
 						theContainer.albums.splice(currentAlbum.albums.indexOf(theAlbum), 1);
 						theLink.remove();
@@ -320,10 +320,7 @@ $(document).ready(function() {
 	if ($.support.fullscreen) {
 		$("#fullscreen-divider").show();
 		$("#fullscreen").show().click(function() {
-			$("#photo").fullScreen({callback: function(isFullscreen) {
-				maxSize = isFullscreen ? 1024 : 800;
-				showPhoto();
-			}});
+			$("#photo").fullScreen()
 		});
 	}
 	$("#metadata-link").click(function() {

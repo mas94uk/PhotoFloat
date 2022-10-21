@@ -107,8 +107,8 @@ class Album(object):
         return None
     
 class Photo(object):
-    # Thumbnail details: (size, square?, quality)
-    thumb_sizes = [ (150, True, 88), (1024, False, 88) ]
+    # Thumbnail details: (size, square?, quality). Largest first, as smaller ones are created from larger.
+    thumb_sizes = [ (1024, False, 88), (150, True, 88) ]
     def __init__(self, path, thumb_path=None, attributes=None, album_base=None, compress=False):
         if album_base:
             set_cache_path_base(album_base)
@@ -294,6 +294,8 @@ class Photo(object):
                 image.save(thumb_path, "JPEG", quality=quality)
             else:
                 image.save(thumb_path, "JPEG", quality=quality, exif=self._rawexif)
+            # Return the thumbnail'ed image, so it can be reused to create the next one
+            return image
         except KeyboardInterrupt:
             try:
                 os.unlink(thumb_path)
@@ -339,7 +341,10 @@ class Photo(object):
             # Rotation 90
             mirror = image.transpose(Image.ROTATE_90)
         for size in Photo.thumb_sizes:
-            self._thumbnail(mirror, thumb_path, original_path, size[0], size[2], square=size[1], suffix=None)
+            thumb = self._thumbnail(mirror, thumb_path, original_path, size[0], size[2], square=size[1], suffix=None)
+            # Return generated thumbnail so it can be used to generate further ones, which is faster than creating each from the original
+            if thumb:
+                mirror = thumb
     @property
     def name(self):
         return os.path.basename(self._path)

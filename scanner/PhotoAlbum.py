@@ -108,7 +108,7 @@ class Album(object):
     
 class Photo(object):
     # Thumbnail details: (size, square?, quality). Largest first, as smaller ones are created from larger.
-    thumb_sizes = [ (1024, False, 88), (150, True, 88) ]
+    thumb_sizes = [ (1024, False, 75), (150, True, 75) ]
     def __init__(self, path, thumb_path=None, attributes=None, album_base=None, compress=False):
         if album_base:
             set_cache_path_base(album_base)

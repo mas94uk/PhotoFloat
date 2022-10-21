@@ -98,7 +98,7 @@ a:hover {
 	background-color: #000000;
 	font-weight: bold;
 	height: 10px;
-	font-size: 10px;
+	font-size: 14px;
 	line-height: 7px;
 	padding-top: 3px;
 	padding-bottom: 3px;
@@ -115,7 +115,7 @@ a:hover {
 #metadata {
 	background-color: #000000;
 	width: 340px;
-	font-size: 12px;
+	font-size: 13px;
 	line-height: 12px;
 	padding-top: 3px;
 	padding-bottom: 3px;

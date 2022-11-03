@@ -7,7 +7,7 @@ def message(category, text):
     else:
         sep = "--"
     print("%s %s%s[%s]%s%s" % (datetime.now().isoformat(), max(0, message.level) * "  |", sep, category, max(1, (14 - len(category))) * " ", text))
-message.level = -1
+message.level = 0
 def next_level():
     message.level += 1
 def back_level():

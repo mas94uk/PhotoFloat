@@ -1,3 +1,4 @@
+from importlib_metadata import metadata
 from CachePath import *
 from datetime import datetime
 import json
@@ -82,7 +83,9 @@ class Album(object):
     def from_dict(dictionary, cripple=True, cache_base=None):
         album = Album(dictionary["path"])
         for photo in dictionary["photos"]:
-            album.add_photo(Photo.from_dict(photo, untrim_base(album.path), cache_base))
+            photo_obj = Photo.from_dict(photo, untrim_base(album.path), cache_base)
+            if photo_obj.valid:
+                album.add_photo(photo_obj)
         if not cripple:
             for subalbum in dictionary["albums"]:
                 album.add_album(Album.from_dict(subalbum), cripple)
@@ -109,7 +112,7 @@ class Album(object):
 class Photo(object):
     # Thumbnail details: (size, square?, quality). Largest first, as smaller ones are created from larger.
     thumb_sizes = [ (1024, False, 75), (150, True, 75) ]
-    def __init__(self, path, thumb_path=None, attributes=None, album_base=None, compress=False):
+    def __init__(self, path, thumb_path=None, attributes=None, album_base=None):
         if album_base:
             set_cache_path_base(album_base)
         self._path = trim_base(path)
@@ -119,15 +122,27 @@ class Photo(object):
         except KeyboardInterrupt:
             raise
         except Exception as e:
-            traceback.print_exc()
+            # Probably because the file no longer exists in the album loaded from json
+            # traceback.print_exc()
             self.is_valid = False
             return
-        if attributes is not None and attributes["dateTimeFile"] >= mtime:
+
+        if attributes:
             self._attributes = attributes
-            return
-        self._attributes = {}
-        self._attributes["dateTimeFile"] = mtime
-        
+        else:
+            self._attributes = {}
+            self._attributes["dateTimeFile"] = mtime
+
+        thumbs_exist = True
+        for size in Photo.thumb_sizes:
+            if not self.check_thumb_exists(thumb_path, path, size[0], size[1]):
+                thumbs_exist = False
+                break
+
+        thumbs_needed = True
+        if self._attributes is not None and self._attributes["dateTimeFile"] >= mtime and thumbs_exist:
+            thumbs_needed = False
+
         try:
             image = Image.open(path)
         except KeyboardInterrupt:
@@ -135,11 +150,15 @@ class Photo(object):
         except:
             self.is_valid = False
             return
+
+        # Always regenerate metadata since it also sets self._orientation.
+        # (If it is too slow, we could recalculate self._orientation from the orientation metadata.)
         self._metadata(image)
-        if compress:
+
+        if thumbs_needed:
             self._thumbnails(image, thumb_path, path)
-#            self._thumbnail_lns(thumb_path)
-        
+#           self._thumbnail_lns(thumb_path)
+    
     def _metadata(self, image):
         self._attributes["size"] = image.size
         self._orientation = 1
@@ -238,12 +257,13 @@ class Photo(object):
     _metadata.scene_capture_type_list = ["Standard", "Landscape", "Portrait", "Night scene"]
     _metadata.subject_distance_range_list = ["Unknown", "Macro", "Close view", "Distant view"]
 
-    def check_exists(self, thumb_path, original_path, size, square=False):
+    def check_thumb_exists(self, thumb_path, original_path, size, square=False):
         thumb_path = os.path.join(thumb_path, image_cache(self._path, size, square, False))
         info_string = "%s -> %spx" % (os.path.basename(original_path), str(size))
         if square:
             info_string += ", square"
-        if os.path.exists(thumb_path) and file_mtime(thumb_path) >= self._attributes["dateTimeFile"]:
+        # Thumb is deemed to exist (and be up-to-date) if its file exists and is later than the photo's timestamp
+        if os.path.exists(thumb_path) and self._attributes and file_mtime(thumb_path) >= self._attributes["dateTimeFile"]:
             return True
         return False
         
@@ -311,13 +331,6 @@ class Photo(object):
                 return
 
     def _thumbnails(self, image, thumb_path, original_path):
-        create = False
-        for size in Photo.thumb_sizes:
-            if not self.check_exists(thumb_path, original_path, size[0], size[1]):
-                create = True
-                break
-        if not create:
-            return
         mirror = image
         if self._orientation == 2:
             # Vertical Mirror
@@ -348,6 +361,9 @@ class Photo(object):
     @property
     def name(self):
         return os.path.basename(self._path)
+    @property
+    def valid(self):
+        return self.is_valid
     def __str__(self):
         return self.name
     @property
@@ -440,8 +456,6 @@ class Photo(object):
                     os.unlink(thumb_path)
                 except:
                     pass
-
-
 
 class PhotoAlbumEncoder(json.JSONEncoder):
     def default(self, obj):

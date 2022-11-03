@@ -9,19 +9,18 @@ import traceback
 #from multiprocessing.pool import ThreadPool
 
 class TreeWalker:
-    def __init__(self, album_path, cache_path, compress=False):
+    def __init__(self, album_path, cache_path):
         try:
             self.album_path = os.path.abspath(album_path)
             self.cache_path = os.path.abspath(cache_path)
-            self.compress = compress
             set_cache_path_base(self.album_path)
             self.all_albums = list()
             self.all_photos = list()
             #self.pool = ThreadPool(10)
-            message("will start waling", "")
+            message("will start walking", "")
             self.walk(self.album_path)
             self.big_lists()
-            #self.remove_stale()
+            self.remove_stale()
             message("complete", "")
         except Exception as e:
             import traceback
@@ -87,7 +86,7 @@ class TreeWalker:
                         photo = cached_photo
                 if not cache_hit:
                     message("metainfo", os.path.basename(entry))
-                    photo = Photo(entry, self.cache_path, compress=self.compress)
+                    photo = Photo(entry, self.cache_path)
                 if photo.is_valid:
                     self.all_photos.append(photo)
                     album.add_photo(photo)
@@ -112,21 +111,41 @@ class TreeWalker:
         json.dump(photo_list, fp, cls=PhotoAlbumEncoder)
         fp.close()
     def remove_stale(self):
-        message("cleanup", "building stale list")
+        message("cleanup", "building cache list")
         all_cache_entries = { "all_photos.json": True, "latest_photos.json": True }
         for album in self.all_albums:
             all_cache_entries[album.cache_path] = True
         for photo in self.all_photos:
             for entry in photo.image_caches:
                 all_cache_entries[entry] = True
-        message("cleanup", "searching for stale cache entries")
-        for cache in os.listdir(self.cache_path):
+        # Make each an absolute path
+        all_cache_entries = {os.path.join(self.cache_path, cache_item): True for cache_item in all_cache_entries}
+        # Start the stale walk
+        self.remove_stale_walk(self.cache_path, all_cache_entries)
+    def remove_stale_walk(self, cache_path, all_cache_entries):
+        message("remove_stale_walk", cache_path)
+        files_found = 0
+        next_level()
+        for cache_file in os.listdir(cache_path):
             try:
-                cache = cache.decode(sys.getfilesystemencoding())
+                cache_file = cache_file.decode(sys.getfilesystemencoding())
             except KeyboardInterrupt:
                 raise
             except:
                 pass
-            if cache not in all_cache_entries:
-                message("cleanup", os.path.basename(cache))
-                os.unlink(os.path.join(self.cache_path, cache))
+            fullpath = os.path.join(cache_path, cache_file)
+            if os.path.isdir(fullpath):
+                sub_files_found = self.remove_stale_walk(fullpath, all_cache_entries)
+                # If no files were found in the subdirectory, remove it
+                if sub_files_found == 0:
+                    message("remove_stale_walk", "Removing stale dir " + fullpath)
+                    os.rmdir(fullpath)
+                files_found += sub_files_found
+            elif os.path.isfile(fullpath):
+                if fullpath not in all_cache_entries:
+                    message("remove_stale_walk", "Removing stale file " + fullpath)
+                    os.unlink(fullpath)
+                else:
+                    files_found += 1
+        back_level()
+        return files_found

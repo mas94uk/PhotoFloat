@@ -162,10 +162,8 @@ class Photo(object):
     def _metadata(self, image):
         self._attributes["size"] = image.size
         self._orientation = 1
-        self._rawexif = None
         try:
             info = image._getexif()
-            self._rawexif = image.info['exif']
         except KeyboardInterrupt:
             raise
         except:
@@ -310,10 +308,7 @@ class Photo(object):
                 message('folder failure', os.path.basename(thumb_path))
                 return
         try:
-            if not self._rawexif:
-                image.save(thumb_path, "JPEG", quality=quality)
-            else:
-                image.save(thumb_path, "JPEG", quality=quality, exif=self._rawexif)
+            image.save(thumb_path, "JPEG", quality=quality)
             # Return the thumbnail'ed image, so it can be reused to create the next one
             return image
         except KeyboardInterrupt:
